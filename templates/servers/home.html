@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+</head>
+<body>
+<ul>
+{% for server in servers %}
+    <li>
+        <h2>{{ server.name }}</h2>
+        <h3>RAM : {{ server.ram }}</h3>
+        <h3>Tasks : {{ server.tasks }}</h3>
+    </li>
+{% endfor %}
+</ul>
+<form method="post" action="{% url 'servers:loadBalance' %}" target="_blank">
+    {% csrf_token %}
+    <input type="text" placeholder="Enter Seconds" name="duration">
+    <button class="btn btn-sm btn-info submit-msg" type="submit">New HTTP request</button>
+</form>
+
+
+</body>
+</html>
