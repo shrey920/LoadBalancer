@@ -20,6 +20,10 @@ def home(request):
 
     for server in servers:
         processes = server.server_processes.filter(expiry__gt=current_time).count()
+
+        server.ram = max(0, 4 - processes)
+
+
         context['servers'].append({
             "name":server.name,
             "ram":server.ram,
@@ -52,6 +56,8 @@ def loadBalance(request):
             best_server = server
 
 
+
+
     return redirect('servers:allocateCloud', best_server.pk, duration)
 
 def allocateCloud(request,pk, duration):
@@ -69,6 +75,11 @@ def allocateCloud(request,pk, duration):
     current_time = datetime.datetime.now()
 
     processes = server.server_processes.filter(expiry__gt=current_time).count()
+
+    server.ram = max(0, 4 - processes)
+
+
+
     context['server'] = {
         "name": server.name,
         "ram": server.ram,
