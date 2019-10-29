@@ -9,5 +9,6 @@ urlpatterns = [
     path('request/<pk>/<duration>',views.allocateCloud, name="allocateCloud"),
     path('scaleup/<pk>', views.scaleUp, name="scaleUp"),
     path('scaledown/<pk>', views.scaleDown, name="scaleDown"),
+    path('create', views.ProcessCreate.as_view(), name="processCreate"),
 
 ]

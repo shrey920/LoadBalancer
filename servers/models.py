@@ -10,5 +10,16 @@ class Server(models.Model):
 
 
 class Process(models.Model):
+    PROCESS_CHOICES = [
+        ('P1', 'Process 1'),
+        ('P2', 'Process 2'),
+        ('P3', 'Process 3'),
+        ('P4', 'Process 4'),
+    ]
+    type = models.CharField(
+        max_length=2,
+        choices=PROCESS_CHOICES,
+        default='P1',
+    )
     server = models.ForeignKey(Server,related_name="server_processes",on_delete=models.CASCADE)
     expiry = models.DateTimeField(null=True)

@@ -1,5 +1,6 @@
 from django.shortcuts import render,redirect
 from django.db.models import Q
+from django.views.generic.edit import CreateView
 
 import datetime
 from datetime import timedelta
@@ -7,6 +8,75 @@ from datetime import timedelta
 from .models import *
 
 # Create your views here.
+
+class ProcessCreate(CreateView):
+    model = Process
+    fields = ['type']
+    template_name = 'servers/createProcess.html'
+
+
+    def form_valid(self, form):
+        """If the form is valid, save the associated model."""
+        self.object = form.save(commit=False)
+
+
+        servers = Server.objects.all()
+        best_server = servers[0]
+        minimum = -1
+
+        current_time = datetime.datetime.now()
+        for server in servers:
+            processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count()
+
+            if minimum == -1 or processes < minimum:
+                minimum = processes
+                best_server = server
+
+        self.object.server = best_server
+        self.object.save()
+        server = best_server
+
+        ram = 0
+        while ram <= 0:
+            current_time = datetime.datetime.now()
+            processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
+            ram = max(0, server.ram - processes)
+
+
+        duration = 0
+
+        if self.object.type == 'P1':
+            duration = 10
+        if self.object.type == 'P2':
+            duration = 25
+        if self.object.type == 'P3':
+            duration = 50
+        if self.object.type == 'P4':
+            duration = 100
+
+        self.object.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
+        self.object.save()
+
+        context = {
+            "server": {},
+        }
+
+        current_time = datetime.datetime.now()
+
+        run_processes = server.server_processes.filter(expiry__gt=current_time).count()
+
+        ram = max(0, server.ram - run_processes)
+        wait_processes = server.server_processes.filter(expiry__isnull=True).count()
+
+        context['server'] = {
+            "name": server.name,
+            "ram": ram,
+            "run_processes": run_processes,
+            "wait_processes": wait_processes
+        }
+
+        return render(self.request, 'servers/allocated.html', context)
+
 
 def home(request):
 
@@ -78,7 +148,6 @@ def loadBalance(request):
     current_time = datetime.datetime.now()
     for server in servers:
         processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count()
-        print(processes)
 
         if minimum==-1 or processes<minimum:
             minimum = processes

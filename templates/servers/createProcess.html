@@ -3,31 +3,19 @@
 <meta http-equiv="refresh" content="5" />
 <head>
     <meta charset="UTF-8">
-    <title>Home</title>
+    <title>Create HTTP Request</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 </head>
 <body>
 
 <div align="center" style="margin-top: 10%;">
-    <a href="{% url 'servers:processCreate' %}" target="_blank"><button class="btn btn-sm btn-info submit-msg" type="submit">Create HTTP requests</button></a>
-</div>
+
+    <form method="post" target="_blank">{% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="New HTTP request" class="btn btn-sm btn-info submit-msg">
+    </form>
 
 <br>
-
-    <div class="row no-gutters" style="margin-left: 20%;">
-    {% for server in servers %}
-        <div class="card" style="width: 18rem;">
-          <div  class="card-body">
-            <h5 class="card-title">{{ server.name }}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">RAM : {{ server.ram }}</h6>
-            <a href="{% url 'servers:scaleUp' server.pk %}" >&#x25B2;</a>
-            <a href="{% url 'servers:scaleDown' server.pk %}" >&#x25BC;</a>
-            <p class="card-text">Running Processes : {{ server.run_processes }}</p>
-            <p class="card-text">Waiting Processes : {{ server.wait_processes }}</p>
-          </div>
-        </div>
-    {% endfor %}
-    </div>
 </div>
 
 
