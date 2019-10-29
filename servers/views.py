@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from operator import attrgetter
+from django.db.models import Q
 
 import datetime
 from datetime import timedelta
@@ -19,15 +19,18 @@ def home(request):
     }
 
     for server in servers:
-        processes = server.server_processes.filter(expiry__gt=current_time).count()
+        run_processes = server.server_processes.filter(expiry__gt=current_time).count()
 
-        server.ram = max(0, 4 - processes)
+        wait_processes = server.server_processes.filter(expiry__isnull=True).count()
+        ram = max(0, server.ram - run_processes)
 
 
         context['servers'].append({
+            "pk":server.pk,
             "name":server.name,
-            "ram":server.ram,
-            "tasks":processes
+            "ram":ram,
+            "run_processes":run_processes,
+            "wait_processes": wait_processes
         })
 
 
@@ -35,6 +38,31 @@ def home(request):
 
 
     return render(request,'servers/home.html',context)
+
+
+
+def scaleUp(request, pk):
+
+    server = Server.objects.get(pk=pk)
+    if server.ram < server.max_ram:
+        server.ram = server.ram + 1
+        server.save()
+
+
+
+    return redirect('servers:home')
+
+def scaleDown(request, pk):
+
+    server = Server.objects.get(pk=pk)
+    if server.ram > server.min_ram:
+        server.ram = server.ram - 1
+        server.save()
+
+
+
+    return redirect('servers:home')
+
 
 
 
@@ -49,7 +77,8 @@ def loadBalance(request):
 
     current_time = datetime.datetime.now()
     for server in servers:
-        processes = server.server_processes.filter(expiry__gt=current_time).count()
+        processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count()
+        print(processes)
 
         if minimum==-1 or processes<minimum:
             minimum = processes
@@ -63,10 +92,20 @@ def loadBalance(request):
 def allocateCloud(request,pk, duration):
 
     server = Server.objects.get(pk=pk)
+
     process = Process()
-    process.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
     process.server = server
     process.save()
+
+    ram = 0
+    while ram <= 0:
+        current_time = datetime.datetime.now()
+        processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
+        ram = max(0, server.ram - processes)
+
+    process.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
+    process.save()
+
 
     context = {
         "server": {},
@@ -74,16 +113,18 @@ def allocateCloud(request,pk, duration):
 
     current_time = datetime.datetime.now()
 
-    processes = server.server_processes.filter(expiry__gt=current_time).count()
+    run_processes = server.server_processes.filter(expiry__gt=current_time).count()
 
-    server.ram = max(0, 4 - processes)
+    ram = max(0, server.ram - run_processes)
+    wait_processes = server.server_processes.filter(expiry__isnull=True).count()
 
 
 
     context['server'] = {
         "name": server.name,
-        "ram": server.ram,
-        "tasks": processes
+        "ram": ram,
+        "run_processes": run_processes,
+        "wait_processes": wait_processes
     }
 
     return render(request,'servers/allocated.html',context)
