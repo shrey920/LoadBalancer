@@ -4,9 +4,9 @@ from django.db import models
 
 class Server(models.Model):
     name = models.CharField("Server Name",max_length=20)
-    ram = models.IntegerField(default=4)
-    min_ram = models.IntegerField(default=1)
-    max_ram = models.IntegerField(default=16)
+    ram = models.FloatField(default=4)
+    min_ram = models.FloatField(default=1)
+    max_ram = models.FloatField(default=16)
 
 
 class Process(models.Model):
@@ -22,4 +22,5 @@ class Process(models.Model):
         default='P1',
     )
     server = models.ForeignKey(Server,related_name="server_processes",on_delete=models.CASCADE)
+    ram = models.FloatField(null=True)
     expiry = models.DateTimeField(null=True)

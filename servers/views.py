@@ -9,6 +9,43 @@ from .models import *
 
 # Create your views here.
 
+
+def home(request):
+
+    servers = Server.objects.all()
+
+    current_time = datetime.datetime.now()
+
+    context = {
+        "servers": [],
+    }
+
+    for server in servers:
+
+        run_processes = server.server_processes.filter(expiry__gt=current_time)
+
+        wait_processes = server.server_processes.filter(expiry__isnull=True).count()
+        # ram = max(0, server.ram - run_processes)
+        ram_used = sum(process.ram for process in run_processes)
+
+
+        context['servers'].append({
+            "pk":server.pk,
+            "name":server.name,
+            "ram":server.ram - ram_used,
+            "run_processes":run_processes.count(),
+            "wait_processes": wait_processes
+        })
+
+
+
+
+
+    return render(request,'servers/home.html',context)
+
+
+
+
 class ProcessCreate(CreateView):
     model = Process
     fields = ['type']
@@ -46,12 +83,16 @@ class ProcessCreate(CreateView):
         duration = 0
 
         if self.object.type == 'P1':
+            self.object.ram = 0.25
             duration = 10
         if self.object.type == 'P2':
+            self.object.ram = 0.5
             duration = 25
         if self.object.type == 'P3':
+            self.object.ram = 0.75
             duration = 50
         if self.object.type == 'P4':
+            self.object.ram = 1.0
             duration = 100
 
         self.object.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
@@ -63,51 +104,22 @@ class ProcessCreate(CreateView):
 
         current_time = datetime.datetime.now()
 
-        run_processes = server.server_processes.filter(expiry__gt=current_time).count()
+        run_processes = server.server_processes.filter(expiry__gt=current_time)
 
-        ram = max(0, server.ram - run_processes)
+        ram_used = sum(process.ram for process in run_processes)
+
+        # ram = max(0, server.ram - run_processes)
         wait_processes = server.server_processes.filter(expiry__isnull=True).count()
 
         context['server'] = {
             "name": server.name,
-            "ram": ram,
-            "run_processes": run_processes,
+            "ram": server.ram - ram_used,
+            "run_processes": run_processes.count(),
             "wait_processes": wait_processes
         }
 
         return render(self.request, 'servers/allocated.html', context)
 
-
-def home(request):
-
-    servers = Server.objects.all()
-
-    current_time = datetime.datetime.now()
-
-    context = {
-        "servers": [],
-    }
-
-    for server in servers:
-        run_processes = server.server_processes.filter(expiry__gt=current_time).count()
-
-        wait_processes = server.server_processes.filter(expiry__isnull=True).count()
-        ram = max(0, server.ram - run_processes)
-
-
-        context['servers'].append({
-            "pk":server.pk,
-            "name":server.name,
-            "ram":ram,
-            "run_processes":run_processes,
-            "wait_processes": wait_processes
-        })
-
-
-
-
-
-    return render(request,'servers/home.html',context)
 
 
 
