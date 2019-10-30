@@ -7,6 +7,8 @@ from datetime import timedelta
 
 from .models import *
 
+rrindex = 0
+
 # Create your views here.
 
 
@@ -46,7 +48,7 @@ def home(request):
 
 
 
-class ProcessCreate(CreateView):
+class LeastConnections(CreateView):
     model = Process
     fields = ['type']
     template_name = 'servers/createProcess.html'
@@ -68,6 +70,78 @@ class ProcessCreate(CreateView):
             if minimum == -1 or processes < minimum:
                 minimum = processes
                 best_server = server
+
+        self.object.server = best_server
+        self.object.save()
+        server = best_server
+
+        ram = 0
+        while ram <= 0:
+            current_time = datetime.datetime.now()
+            processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
+            ram = max(0, server.ram - processes)
+
+
+        duration = 0
+
+        if self.object.type == 'P1':
+            self.object.ram = 0.25
+            duration = 10
+        if self.object.type == 'P2':
+            self.object.ram = 0.5
+            duration = 25
+        if self.object.type == 'P3':
+            self.object.ram = 0.75
+            duration = 50
+        if self.object.type == 'P4':
+            self.object.ram = 1.0
+            duration = 100
+
+        self.object.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
+        self.object.save()
+
+        context = {
+            "server": {},
+        }
+
+        current_time = datetime.datetime.now()
+
+        run_processes = server.server_processes.filter(expiry__gt=current_time)
+
+        ram_used = sum(process.ram for process in run_processes)
+
+        # ram = max(0, server.ram - run_processes)
+        wait_processes = server.server_processes.filter(expiry__isnull=True).count()
+
+        context['server'] = {
+            "name": server.name,
+            "ram": server.ram - ram_used,
+            "run_processes": run_processes.count(),
+            "wait_processes": wait_processes
+        }
+
+        return render(self.request, 'servers/allocated.html', context)
+
+
+
+class RoundRobin(CreateView):
+    model = Process
+    fields = ['type']
+    template_name = 'servers/createProcess.html'
+
+
+
+
+    def form_valid(self, form):
+        """If the form is valid, save the associated model."""
+        self.object = form.save(commit=False)
+
+
+        servers = Server.objects.all()
+
+        global rrindex
+        best_server = servers[rrindex]
+        rrindex = (rrindex+1)%(servers.count())
 
         self.object.server = best_server
         self.object.save()
