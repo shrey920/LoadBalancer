@@ -30,11 +30,17 @@ def home(request):
         # ram = max(0, server.ram - run_processes)
         ram_used = sum(process.ram for process in run_processes)
 
+        if ram_used>=server.ram and server.ram!=server.max_ram:
+            return redirect('servers:scaleUp', server.pk)
+        elif ram_used<server.ram/2 and server.ram!=server.min_ram:
+            return redirect('servers:scaleDown', server.pk)
+
 
         context['servers'].append({
             "pk":server.pk,
             "name":server.name,
-            "ram":server.ram - ram_used,
+            "ram_used": ram_used,
+            "ram": server.ram,
             "run_processes":run_processes.count(),
             "wait_processes": wait_processes
         })
@@ -129,9 +135,11 @@ class LeastConnections(CreateView):
         # ram = max(0, server.ram - run_processes)
         wait_processes = server.server_processes.filter(expiry__isnull=True).count()
 
+
         context['server'] = {
             "name": server.name,
-            "ram": server.ram - ram_used,
+            "ram_used": ram_used,
+            "ram": server.ram,
             "run_processes": run_processes.count(),
             "wait_processes": wait_processes
         }
@@ -217,7 +225,8 @@ class RoundRobin(CreateView):
 
         context['server'] = {
             "name": server.name,
-            "ram": server.ram - ram_used,
+            "ram_used": ram_used,
+            "ram": server.ram,
             "run_processes": run_processes.count(),
             "wait_processes": wait_processes
         }
@@ -231,7 +240,7 @@ def scaleUp(request, pk):
 
     server = Server.objects.get(pk=pk)
     if server.ram < server.max_ram:
-        server.ram = server.ram + 1
+        server.ram = server.ram * 2
         server.save()
 
 
@@ -242,7 +251,7 @@ def scaleDown(request, pk):
 
     server = Server.objects.get(pk=pk)
     if server.ram > server.min_ram:
-        server.ram = server.ram - 1
+        server.ram = server.ram / 2
         server.save()
 
 

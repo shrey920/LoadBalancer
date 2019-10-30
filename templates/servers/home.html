@@ -20,7 +20,7 @@
         <div class="card" style="width: 18rem;">
           <div  class="card-body">
             <h5 class="card-title">{{ server.name }}</h5>
-            <h6 class="card-subtitle mb-2 text-muted">RAM : {{ server.ram }}</h6>
+            <h6 class="card-subtitle mb-2 text-muted">RAM usage : {{ server.ram_used }} / {{ server.ram }}</h6>
             <a href="{% url 'servers:scaleUp' server.pk %}" >&#x25B2;</a>
             <a href="{% url 'servers:scaleDown' server.pk %}" >&#x25BC;</a>
             <p class="card-text">Running Processes : {{ server.run_processes }}</p>
