@@ -114,14 +114,19 @@ class LeastConnections(CreateView):
             process.duration = 100
 
 
-        server = best_server
+
 
         ram = 0
-        while ram <= 0 :
+        while ram < process.ram:
+            server = Server.objects.get(pk=best_server.pk)
             current_time = datetime.datetime.now()
 
-            processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
-            ram = max(0, server.ram - processes)
+            run_processes = server.server_processes.filter(expiry__gt=current_time)
+
+            ram_used = sum(process.ram for process in run_processes)
+
+            ram = server.ram - ram_used
+
 
 
 
@@ -207,14 +212,17 @@ class RoundRobin(CreateView):
             process.ram = 1.0
             process.duration = 100
 
-        server = best_server
-
         ram = 0
-        while ram <= 0:
+        while ram < process.ram:
+            server = Server.objects.get(pk=best_server.pk)
             current_time = datetime.datetime.now()
 
-            processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
-            ram = max(0, server.ram - processes)
+            run_processes = server.server_processes.filter(expiry__gt=current_time)
+
+            ram_used = sum(process.ram for process in run_processes)
+
+            ram = server.ram - ram_used
+
 
         process.expiry = datetime.datetime.now() + timedelta(seconds=process.duration)
         process.save()
