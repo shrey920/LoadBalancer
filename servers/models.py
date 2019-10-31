@@ -25,3 +25,6 @@ class Process(models.Model):
     ram = models.FloatField(null=True)
     duration = models.IntegerField(null=True)
     expiry = models.DateTimeField(null=True)
+
+    end = models.DateTimeField(null=True)
+    sla = models.IntegerField(default=1000)

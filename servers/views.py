@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from django.db.models import Q
 from django.views.generic.edit import CreateView
-
+from django.utils import timezone
 import datetime
 from datetime import timedelta
 
@@ -16,7 +16,7 @@ def home(request):
 
     servers = Server.objects.all()
 
-    current_time = datetime.datetime.now()
+    current_time = timezone.now()
 
     context = {
         "servers": [],
@@ -58,7 +58,7 @@ def home(request):
 
 class LeastConnections(CreateView):
     model = Process
-    fields = ['type']
+    fields = ['type', 'sla']
     template_name = 'servers/createProcess.html'
 
     def render_to_response(self, context, **response_kwargs):
@@ -81,13 +81,13 @@ class LeastConnections(CreateView):
     def form_valid(self, form):
         """If the form is valid, save the associated model."""
         self.object = form.save(commit=False)
-        self.object.start = datetime.datetime.now()
+        self.object.end = timezone.now() + timedelta(seconds=self.object.sla)
 
         servers = Server.objects.all()
         best_server = servers[0]
         minimum = -1
 
-        current_time = datetime.datetime.now()
+        current_time = timezone.now()
         for server in servers:
             processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count()
 
@@ -113,16 +113,30 @@ class LeastConnections(CreateView):
             process.ram = 1.0
             process.duration = 100
 
+        server = Server.objects.get(pk=best_server.pk)
+        current_time = timezone.now()
+        run_processes = server.server_processes.filter(expiry__gt=current_time)
+        ram_used = sum(process.ram for process in run_processes)
+
+        ram = server.ram - ram_used
 
 
-
-        ram = 0
         while ram < process.ram:
             server = Server.objects.get(pk=best_server.pk)
-            current_time = datetime.datetime.now()
+            current_time = timezone.now()
+
+            if process.end > current_time + timedelta(seconds=process.duration):
+                swap_process_pool = server.server_processes.filter(expiry__gt=current_time, end__gt=process.end).order_by('-end')
+                if swap_process_pool.count()>0:
+                    swap_process = swap_process_pool[0]
+                    process.expiry = timezone.now() + timedelta(seconds=process.duration)
+                    process.save()
+                    process = swap_process
+                    process.expiry = None
+                    process.save()
+
 
             run_processes = server.server_processes.filter(expiry__gt=current_time)
-
             ram_used = sum(process.ram for process in run_processes)
 
             ram = server.ram - ram_used
@@ -131,14 +145,14 @@ class LeastConnections(CreateView):
 
 
 
-        process.expiry = datetime.datetime.now() + timedelta(seconds=process.duration)
+        process.expiry = timezone.now() + timedelta(seconds=process.duration)
         process.save()
 
         context = {
             "server": {},
         }
 
-        current_time = datetime.datetime.now()
+        current_time = timezone.now()
 
         run_processes = server.server_processes.filter(expiry__gt=current_time)
 
@@ -162,7 +176,7 @@ class LeastConnections(CreateView):
 
 class RoundRobin(CreateView):
     model = Process
-    fields = ['type']
+    fields = ['type', 'sla']
     template_name = 'servers/createProcess.html'
 
     def render_to_response(self, context, **response_kwargs):
@@ -185,7 +199,7 @@ class RoundRobin(CreateView):
     def form_valid(self, form):
         """If the form is valid, save the associated model."""
         self.object = form.save(commit=False)
-
+        self.object.end = timezone.now() + timedelta(seconds=self.object.sla)
 
         servers = Server.objects.all()
 
@@ -195,7 +209,6 @@ class RoundRobin(CreateView):
 
         self.object.server = best_server
         self.object.save()
-        server = best_server
 
         process = Process.objects.get(pk=self.object.pk)
 
@@ -212,27 +225,41 @@ class RoundRobin(CreateView):
             process.ram = 1.0
             process.duration = 100
 
-        ram = 0
+        server = Server.objects.get(pk=best_server.pk)
+        current_time = timezone.now()
+        run_processes = server.server_processes.filter(expiry__gt=current_time)
+        ram_used = sum(process.ram for process in run_processes)
+
+        ram = server.ram - ram_used
+
         while ram < process.ram:
             server = Server.objects.get(pk=best_server.pk)
-            current_time = datetime.datetime.now()
+            current_time = timezone.now()
+
+            if process.end > current_time + timedelta(seconds=process.duration):
+                swap_process_pool = server.server_processes.filter(expiry__gt=current_time,
+                                                                   end__gt=process.end).order_by('-end')
+                if swap_process_pool.count() > 0:
+                    swap_process = swap_process_pool[0]
+                    process.expiry = timezone.now() + timedelta(seconds=process.duration)
+                    process.save()
+                    process = swap_process
+                    process.expiry = None
+                    process.save()
 
             run_processes = server.server_processes.filter(expiry__gt=current_time)
-
             ram_used = sum(process.ram for process in run_processes)
 
             ram = server.ram - ram_used
 
-
-        process.expiry = datetime.datetime.now() + timedelta(seconds=process.duration)
+        process.expiry = timezone.now() + timedelta(seconds=process.duration)
         process.save()
-
 
         context = {
             "server": {},
         }
 
-        current_time = datetime.datetime.now()
+        current_time = timezone.now()
 
         run_processes = server.server_processes.filter(expiry__gt=current_time)
 
@@ -250,8 +277,6 @@ class RoundRobin(CreateView):
         }
 
         return render(self.request, 'servers/allocated.html', context)
-
-
 
 
 def scaleUp(request, pk):
@@ -288,7 +313,7 @@ def loadBalance(request):
     best_server = servers[0]
     minimum = -1
 
-    current_time = datetime.datetime.now()
+    current_time = timezone.now()
     for server in servers:
         processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count()
 
@@ -311,11 +336,11 @@ def allocateCloud(request,pk, duration):
 
     ram = 0
     while ram <= 0:
-        current_time = datetime.datetime.now()
+        current_time = timezone.now()
         processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
         ram = max(0, server.ram - processes)
 
-    process.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
+    process.expiry = timezone.now() + timedelta(seconds=int(duration))
     process.save()
 
 
@@ -323,7 +348,7 @@ def allocateCloud(request,pk, duration):
         "server": {},
     }
 
-    current_time = datetime.datetime.now()
+    current_time = timezone.now()
 
     run_processes = server.server_processes.filter(expiry__gt=current_time).count()
 
