@@ -23,4 +23,5 @@ class Process(models.Model):
     )
     server = models.ForeignKey(Server,related_name="server_processes",on_delete=models.CASCADE)
     ram = models.FloatField(null=True)
+    duration = models.IntegerField(null=True)
     expiry = models.DateTimeField(null=True)

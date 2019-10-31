@@ -30,10 +30,12 @@ def home(request):
         # ram = max(0, server.ram - run_processes)
         ram_used = sum(process.ram for process in run_processes)
 
-        if ram_used>=server.ram and server.ram!=server.max_ram:
-            return redirect('servers:scaleUp', server.pk)
+        if server.ram<server.max_ram and wait_processes>0 and server.ram - ram_used < 1:
+            server.ram = server.ram * 2
+            server.save()
         elif ram_used<server.ram/2 and server.ram!=server.min_ram:
-            return redirect('servers:scaleDown', server.pk)
+            server.ram = server.ram / 2
+            server.save()
 
 
         context['servers'].append({
@@ -79,7 +81,7 @@ class LeastConnections(CreateView):
     def form_valid(self, form):
         """If the form is valid, save the associated model."""
         self.object = form.save(commit=False)
-
+        self.object.start = datetime.datetime.now()
 
         servers = Server.objects.all()
         best_server = servers[0]
@@ -95,32 +97,37 @@ class LeastConnections(CreateView):
 
         self.object.server = best_server
         self.object.save()
+
+        process = Process.objects.get(pk=self.object.pk)
+
+        if process.type == 'P1':
+            process.ram = 0.25
+            process.duration = 10
+        if process.type == 'P2':
+            process.ram = 0.5
+            process.duration = 25
+        if process.type == 'P3':
+            process.ram = 0.75
+            process.duration = 50
+        if process.type == 'P4':
+            process.ram = 1.0
+            process.duration = 100
+
+
         server = best_server
 
         ram = 0
-        while ram <= 0:
+        while ram <= 0 :
             current_time = datetime.datetime.now()
+
             processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
             ram = max(0, server.ram - processes)
 
 
-        duration = 0
 
-        if self.object.type == 'P1':
-            self.object.ram = 0.25
-            duration = 10
-        if self.object.type == 'P2':
-            self.object.ram = 0.5
-            duration = 25
-        if self.object.type == 'P3':
-            self.object.ram = 0.75
-            duration = 50
-        if self.object.type == 'P4':
-            self.object.ram = 1.0
-            duration = 100
 
-        self.object.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
-        self.object.save()
+        process.expiry = datetime.datetime.now() + timedelta(seconds=process.duration)
+        process.save()
 
         context = {
             "server": {},
@@ -185,30 +192,33 @@ class RoundRobin(CreateView):
         self.object.save()
         server = best_server
 
+        process = Process.objects.get(pk=self.object.pk)
+
+        if process.type == 'P1':
+            process.ram = 0.25
+            process.duration = 10
+        if process.type == 'P2':
+            process.ram = 0.5
+            process.duration = 25
+        if process.type == 'P3':
+            process.ram = 0.75
+            process.duration = 50
+        if process.type == 'P4':
+            process.ram = 1.0
+            process.duration = 100
+
+        server = best_server
+
         ram = 0
         while ram <= 0:
             current_time = datetime.datetime.now()
+
             processes = server.server_processes.filter(Q(expiry__gt=current_time) | Q(expiry__isnull=True)).count() - 1
             ram = max(0, server.ram - processes)
 
+        process.expiry = datetime.datetime.now() + timedelta(seconds=process.duration)
+        process.save()
 
-        duration = 0
-
-        if self.object.type == 'P1':
-            self.object.ram = 0.25
-            duration = 10
-        if self.object.type == 'P2':
-            self.object.ram = 0.5
-            duration = 25
-        if self.object.type == 'P3':
-            self.object.ram = 0.75
-            duration = 50
-        if self.object.type == 'P4':
-            self.object.ram = 1.0
-            duration = 100
-
-        self.object.expiry = datetime.datetime.now() + timedelta(seconds=int(duration))
-        self.object.save()
 
         context = {
             "server": {},
